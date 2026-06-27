@@ -1,0 +1,206 @@
+"use client";
+
+import React, { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Upload, X, ArrowLeft, Save } from 'lucide-react';
+import Link from 'next/link';
+
+export default function CreateProductPage() {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [error, setError] = useState('');
+  const [categoryTypes, setCategoryTypes] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/category-types?limit=100').then(r => r.json()).then(j => setCategoryTypes(j.data || []));
+    fetch('/api/categories?limit=200').then(r => r.json()).then(j => setCategories(j.data || []));
+    fetch('/api/subcategories?limit=200').then(r => r.json()).then(j => setSubcategories(j.data || []));
+  }, []);
+
+  const [form, setForm] = useState({
+    vendor_id: '',
+    product_name: '',
+    cat_type_id: '',
+    category: '',
+    subcategory: '',
+    low_category: '',
+    brand: '',
+    product_label: '',
+    quantity: '',
+    volume: '',
+    mrp: '',
+    selling_price: '',
+    gst: '0',
+    total_amt: '',
+    product_description: '',
+    add_info_title: '',
+    add_info_desc: '',
+    stock_status: '',
+    description: '',
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImagePreview(URL.createObjectURL(file));
+    setUploadingImg(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setImageUrl(json.url);
+    } catch (e: any) { setError('Image upload failed: ' + e.message); }
+    finally { setUploadingImg(false); }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          product_images: imageUrl,
+          mrp: Number(form.mrp),
+          selling_price: Number(form.selling_price),
+          gst: Number(form.gst),
+          total_amt: Number(form.total_amt) || 0,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      router.push('/admin/products');
+    } catch (e: any) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500";
+  const labelCls = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+  const sectionCls = "bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm space-y-4";
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/admin/products">
+          <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" /></button>
+        </Link>
+        <div><h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Product</h1><p className="text-sm text-gray-500">नया product जोड़ें</p></div>
+      </div>
+
+      {error && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">⚠️ {error}</div>}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        
+        {/* Product Image Section */}
+        <div className={sectionCls}>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Product Image</h2>
+          <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors">
+            {imagePreview ? (
+              <div className="relative inline-block">
+                <img src={imagePreview} alt="Preview" className="h-40 w-40 object-cover rounded-lg mx-auto" />
+                {uploadingImg && <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center"><div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
+                <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageUrl(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><X size={12} /></button>
+              </div>
+            ) : (
+              <div className="space-y-2"><Upload size={32} className="mx-auto text-gray-400" /><p className="text-sm text-gray-500">Click to upload image</p></div>
+            )}
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+        </div>
+
+        {/* Basic Info Section */}
+        <div className={sectionCls}>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Basic Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label className={labelCls}>Product Name *</label><input name="product_name" value={form.product_name} onChange={handleChange} required className={inputCls} /></div>
+            <div><label className={labelCls}>Vendor ID</label><input name="vendor_id" value={form.vendor_id} onChange={handleChange} placeholder="Optional" className={inputCls} /></div>
+            <div><label className={labelCls}>Brand</label><input name="brand" value={form.brand} onChange={handleChange} className={inputCls} /></div>
+            <div><label className={labelCls}>Product Label</label><input name="product_label" value={form.product_label} onChange={handleChange} placeholder="e.g. Inclusive of all taxes" className={inputCls} /></div>
+          </div>
+        </div>
+
+        {/* Categories Section */}
+        <div className={sectionCls}>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Categorization</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Category Type</label>
+              <select name="cat_type_id" value={form.cat_type_id} onChange={handleChange} className={inputCls}>
+                <option value="">Select Category Type...</option>
+                {categoryTypes.map(ct => <option key={ct._id} value={ct._id}>{ct.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Category</label>
+              <select name="category" value={form.category} onChange={handleChange} className={inputCls}>
+                <option value="">Select Category...</option>
+                {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Subcategory</label>
+              <select name="subcategory" value={form.subcategory} onChange={handleChange} className={inputCls}>
+                <option value="">Select Subcategory...</option>
+                {subcategories.map(s => <option key={s._id} value={s._id}>{s.category_name || s.name}</option>)}
+              </select>
+            </div>
+            <div><label className={labelCls}>Low Category</label><input name="low_category" value={form.low_category} onChange={handleChange} className={inputCls} /></div>
+          </div>
+        </div>
+
+        {/* Pricing & Volume Section */}
+        <div className={sectionCls}>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Pricing, Quantity & Volume</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div><label className={labelCls}>Quantity</label><input name="quantity" value={form.quantity} onChange={handleChange} placeholder="e.g. 1" className={inputCls} /></div>
+            <div><label className={labelCls}>Volume</label><input name="volume" value={form.volume} onChange={handleChange} placeholder="e.g. kg, liter" className={inputCls} /></div>
+            <div><label className={labelCls}>Stock Status</label><input name="stock_status" value={form.stock_status} onChange={handleChange} placeholder="e.g. 50" className={inputCls} /></div>
+            <div><label className={labelCls}>MRP (₹)</label><input name="mrp" type="number" step="0.01" value={form.mrp} onChange={handleChange} className={inputCls} /></div>
+            <div><label className={labelCls}>Selling Price (₹)</label><input name="selling_price" type="number" step="0.01" value={form.selling_price} onChange={handleChange} className={inputCls} /></div>
+            <div>
+              <label className={labelCls}>GST (%)</label>
+              <select name="gst" value={form.gst} onChange={handleChange} className={inputCls}>
+                <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option>
+              </select>
+            </div>
+            <div><label className={labelCls}>Total Amount (Internal Use)</label><input name="total_amt" type="number" step="0.01" value={form.total_amt} onChange={handleChange} className={inputCls} /></div>
+          </div>
+        </div>
+
+        {/* Additional Info Section */}
+        <div className={sectionCls}>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Descriptions & Additional Info</h2>
+          <div className="space-y-4">
+            <div><label className={labelCls}>Main Description</label><textarea name="description" value={form.description} onChange={handleChange} rows={2} className={inputCls} /></div>
+            <div><label className={labelCls}>Product Description (Short)</label><textarea name="product_description" value={form.product_description} onChange={handleChange} rows={2} className={inputCls} /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label className={labelCls}>Additional Info Title</label><input name="add_info_title" value={form.add_info_title} onChange={handleChange} className={inputCls} /></div>
+              <div><label className={labelCls}>Additional Info Description</label><textarea name="add_info_desc" value={form.add_info_desc} onChange={handleChange} rows={1} className={inputCls} /></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex justify-end gap-3 pb-6">
+          <Link href="/admin/products"><button type="button" className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button></Link>
+          <button type="submit" disabled={saving || uploadingImg} className="flex items-center gap-2 px-6 py-2.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium shadow-sm"><Save size={16} />{saving ? 'Saving...' : 'Save Product'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}

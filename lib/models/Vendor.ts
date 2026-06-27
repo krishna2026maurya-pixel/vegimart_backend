@@ -1,0 +1,36 @@
+import mongoose, { Schema, model, models } from 'mongoose';
+
+const VendorSchema = new Schema({
+  full_name: String,
+  email: String,
+  mobile_number: String,
+  password: String,
+  shop_name: String,
+  shop_category: String,
+  business_type: String,
+  gst_number: String,
+  pan_number: String,
+  licence_number: String,
+  address: String,
+  country: String,
+  state: String,
+  city: String,
+  pincode: String,
+  landmark: String,
+  services_coverage: String,
+  shop_image: String,
+  aadhar_front: String,
+  aadhar_back: String,
+  gps_lat: String,
+  gps_long: String,
+  gps_location: String,
+  is_verified: { type: String, default: '0' },
+  is_bestseller: { type: String, default: '0' },
+  wallet_balance: { type: Number, default: 0 },
+  fiberbase_token: String,
+  handling_charge: Number,
+  gst_certificate: String,
+  pan_card: String,
+}, { timestamps: true });
+
+export default models.Vendor || model('Vendor', VendorSchema);
