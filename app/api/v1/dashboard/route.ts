@@ -12,6 +12,10 @@ import Banner from '@/lib/models/Banner';
 import User from '@/lib/models/User';
 import { authMiddleware } from '@/lib/auth';
 
+// Force-register models to avoid "Schema hasn't been registered" errors in populate
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _ensureModels = [Order, OrderItem, Cart, Wishlist, Category, CategoryType, Product, Banner, User];
+
 // Order status labels
 const ORDER_STATUS_LABELS: Record<number, string> = {
   0: 'Pending',
@@ -72,7 +76,7 @@ async function getDashboard(request: NextRequest, userId: string) {
         .sort({ createdAt: -1 })
         .populate({
           path: 'items',
-          model: 'OrderItem',
+          model: OrderItem,
           select: 'product_name qty price image product_id'
         })
         .lean(),
@@ -83,7 +87,7 @@ async function getDashboard(request: NextRequest, userId: string) {
         .limit(5)
         .populate({
           path: 'items',
-          model: 'OrderItem',
+          model: OrderItem,
           select: 'product_name qty price image product_id'
         })
         .lean(),
@@ -150,17 +154,24 @@ async function getDashboard(request: NextRequest, userId: string) {
       stock_status: p.stock_status,
       description: p.description || p.product_description || null,
       is_active: p.is_active,
+      is_bestseller: (p as any).is_bestseller === '1',
       is_wishlist: wishlistProductIds.has(p._id.toString()),
       is_in_cart: cartProductIds.has(p._id.toString()),
+      discount_percent: p.mrp && p.selling_price && p.mrp > p.selling_price
+        ? parseFloat((((p.mrp - p.selling_price) / p.mrp) * 100).toFixed(1))
+        : 0,
     });
 
-    // ─── Bestsellers: products with highest selling_price discount margin ──
-    // Ranked by: (mrp - selling_price) / mrp desc, as "popular/deal"
+    // ─── Bestsellers: products flagged as bestseller OR highest discount ────
     const bestsellers = [...allProducts]
-      .filter(p => p.mrp && p.selling_price && p.mrp > p.selling_price)
-      .sort((a, b) => {
-        const discountA = ((a.mrp - a.selling_price) / a.mrp) * 100;
-        const discountB = ((b.mrp - b.selling_price) / b.mrp) * 100;
+      .filter(p => p.is_active === '1')
+      .sort((a: any, b: any) => {
+        // Primary: is_bestseller flag
+        if (b.is_bestseller === '1' && a.is_bestseller !== '1') return 1;
+        if (a.is_bestseller === '1' && b.is_bestseller !== '1') return -1;
+        // Secondary: discount %
+        const discountA = a.mrp && a.selling_price ? ((a.mrp - a.selling_price) / a.mrp) * 100 : 0;
+        const discountB = b.mrp && b.selling_price ? ((b.mrp - b.selling_price) / b.mrp) * 100 : 0;
         return discountB - discountA;
       })
       .slice(0, 10)

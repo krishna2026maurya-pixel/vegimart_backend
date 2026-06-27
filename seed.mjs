@@ -36,7 +36,7 @@ const daysAgo = (n) => new Date(today - n * 86400000);
 // ─────────────────────────────────────────────────────────────────────────────
 // DROP existing collections
 // ─────────────────────────────────────────────────────────────────────────────
-const colls = ['vendors','products','orders','deliveryboys','users','categories','brands','coupons','banners','addresses','orderitems'];
+const colls = ['vendors','products','orders','deliveryboys','users','categories','categorytypes','brands','coupons','banners','addresses','orderitems','carts','wishlists'];
 for (const c of colls) {
   try { await db.collection(c).drop(); } catch {}
 }
@@ -88,6 +88,19 @@ const insertedCats = await db.collection('categories').insertMany(categories);
 console.log(`✅ ${categories.length} Categories inserted`);
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 2.5 CATEGORY TYPES (4)
+// ─────────────────────────────────────────────────────────────────────────────
+const categoryTypeList = [
+  { name: 'Fresh Vegetables', slug: 'fresh-vegetables', image: 'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=400&auto=format&fit=crop&q=80', sort_order: 1 },
+  { name: 'Fresh Fruits',     slug: 'fresh-fruits',     image: 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?w=400&auto=format&fit=crop&q=80', sort_order: 2 },
+  { name: 'Dairy Products',   slug: 'dairy-products',   image: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=400&auto=format&fit=crop&q=80', sort_order: 3 },
+  { name: 'Organic & Herbs',  slug: 'organic-herbs',    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80', sort_order: 4 },
+];
+const categoryTypes = categoryTypeList.map(ct => ({ ...ct, is_active: '1', created_at: daysAgo(randInt(30, 300)).toISOString() }));
+await db.collection('categorytypes').insertMany(categoryTypes);
+console.log(`✅ ${categoryTypes.length} Category Types inserted`);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 3. BRANDS (6)
 // ─────────────────────────────────────────────────────────────────────────────
 const brandNames = ['Farm Fresh', 'Organic India', 'Nature\'s Best', 'Green Leaf', 'Pure Harvest', 'Golden Fields'];
@@ -108,40 +121,41 @@ const brands = brandNames.map((name, i) => ({
 await db.collection('brands').insertMany(brands);
 console.log(`✅ ${brands.length} Brands inserted`);
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. PRODUCTS (30)
 // ─────────────────────────────────────────────────────────────────────────────
 const productList = [
-  { name: 'Fresh Tomatoes', unit: '1 kg', mrp: 60, sp: 50 },
-  { name: 'Organic Potatoes', unit: '1 kg', mrp: 40, sp: 35 },
-  { name: 'Green Apples', unit: '1 kg', mrp: 200, sp: 180 },
-  { name: 'Spinach (Palak)', unit: '500g', mrp: 30, sp: 25 },
-  { name: 'Onions', unit: '1 kg', mrp: 35, sp: 28 },
-  { name: 'Carrots', unit: '500g', mrp: 45, sp: 38 },
-  { name: 'Cucumber', unit: '1 kg', mrp: 30, sp: 24 },
-  { name: 'Broccoli', unit: '500g', mrp: 80, sp: 70 },
-  { name: 'Bell Peppers', unit: '250g', mrp: 60, sp: 50 },
-  { name: 'Cauliflower', unit: '1 pc', mrp: 40, sp: 32 },
-  { name: 'Cabbage', unit: '1 kg', mrp: 25, sp: 20 },
-  { name: 'Garlic', unit: '250g', mrp: 60, sp: 50 },
-  { name: 'Ginger', unit: '250g', mrp: 50, sp: 42 },
-  { name: 'Bananas', unit: '1 dozen', mrp: 60, sp: 48 },
-  { name: 'Mangoes (Alphonso)', unit: '1 kg', mrp: 350, sp: 300 },
-  { name: 'Watermelon', unit: '1 pc', mrp: 120, sp: 95 },
-  { name: 'Grapes (Green)', unit: '500g', mrp: 90, sp: 78 },
-  { name: 'Orange', unit: '1 kg', mrp: 80, sp: 65 },
-  { name: 'Paneer', unit: '200g', mrp: 95, sp: 85 },
-  { name: 'Coriander Leaves', unit: '100g', mrp: 15, sp: 12 },
-  { name: 'Mint Leaves', unit: '100g', mrp: 12, sp: 10 },
-  { name: 'Lemon', unit: '6 pcs', mrp: 30, sp: 25 },
-  { name: 'Pumpkin', unit: '1 kg', mrp: 35, sp: 28 },
-  { name: 'Ladies Finger (Okra)', unit: '500g', mrp: 45, sp: 38 },
-  { name: 'Bitter Gourd', unit: '500g', mrp: 50, sp: 42 },
-  { name: 'Ridge Gourd', unit: '500g', mrp: 35, sp: 28 },
-  { name: 'Bottle Gourd', unit: '1 pc', mrp: 30, sp: 24 },
-  { name: 'Sweet Potato', unit: '1 kg', mrp: 55, sp: 45 },
-  { name: 'Raw Banana', unit: '1 kg', mrp: 40, sp: 32 },
-  { name: 'Drumstick (Moringa)', unit: '500g', mrp: 40, sp: 33 },
+  { name: 'Fresh Tomatoes',        unit: '1 kg',    mrp: 60,  sp: 50,  category: 'Vegetables',       is_bestseller: true  },
+  { name: 'Organic Potatoes',      unit: '1 kg',    mrp: 40,  sp: 35,  category: 'Root Vegetables',  is_bestseller: false },
+  { name: 'Green Apples',          unit: '1 kg',    mrp: 200, sp: 180, category: 'Fruits',            is_bestseller: true  },
+  { name: 'Spinach (Palak)',       unit: '500g',    mrp: 30,  sp: 25,  category: 'Leafy Greens',     is_bestseller: false },
+  { name: 'Onions',                unit: '1 kg',    mrp: 35,  sp: 28,  category: 'Vegetables',       is_bestseller: true  },
+  { name: 'Carrots',               unit: '500g',    mrp: 45,  sp: 38,  category: 'Root Vegetables',  is_bestseller: false },
+  { name: 'Cucumber',              unit: '1 kg',    mrp: 30,  sp: 24,  category: 'Vegetables',       is_bestseller: false },
+  { name: 'Broccoli',              unit: '500g',    mrp: 80,  sp: 70,  category: 'Exotic Vegetables', is_bestseller: true },
+  { name: 'Bell Peppers',          unit: '250g',    mrp: 60,  sp: 50,  category: 'Exotic Vegetables', is_bestseller: true },
+  { name: 'Cauliflower',           unit: '1 pc',    mrp: 40,  sp: 32,  category: 'Vegetables',       is_bestseller: false },
+  { name: 'Cabbage',               unit: '1 kg',    mrp: 25,  sp: 20,  category: 'Leafy Greens',     is_bestseller: false },
+  { name: 'Garlic',                unit: '250g',    mrp: 60,  sp: 50,  category: 'Herbs & Spices',   is_bestseller: true  },
+  { name: 'Ginger',                unit: '250g',    mrp: 50,  sp: 42,  category: 'Herbs & Spices',   is_bestseller: false },
+  { name: 'Bananas',               unit: '1 dozen', mrp: 60,  sp: 48,  category: 'Fruits',            is_bestseller: true  },
+  { name: 'Mangoes (Alphonso)',    unit: '1 kg',    mrp: 350, sp: 300, category: 'Fruits',            is_bestseller: true  },
+  { name: 'Watermelon',            unit: '1 pc',    mrp: 120, sp: 95,  category: 'Fruits',            is_bestseller: true  },
+  { name: 'Grapes (Green)',        unit: '500g',    mrp: 90,  sp: 78,  category: 'Fruits',            is_bestseller: false },
+  { name: 'Orange',                unit: '1 kg',    mrp: 80,  sp: 65,  category: 'Fruits',            is_bestseller: false },
+  { name: 'Paneer',                unit: '200g',    mrp: 95,  sp: 85,  category: 'Dairy & Eggs',     is_bestseller: true  },
+  { name: 'Coriander Leaves',      unit: '100g',    mrp: 15,  sp: 12,  category: 'Herbs & Spices',   is_bestseller: false },
+  { name: 'Mint Leaves',           unit: '100g',    mrp: 12,  sp: 10,  category: 'Herbs & Spices',   is_bestseller: false },
+  { name: 'Lemon',                 unit: '6 pcs',   mrp: 30,  sp: 25,  category: 'Fruits',            is_bestseller: false },
+  { name: 'Pumpkin',               unit: '1 kg',    mrp: 35,  sp: 28,  category: 'Vegetables',       is_bestseller: false },
+  { name: 'Ladies Finger (Okra)', unit: '500g',    mrp: 45,  sp: 38,  category: 'Vegetables',       is_bestseller: true  },
+  { name: 'Bitter Gourd',          unit: '500g',    mrp: 50,  sp: 42,  category: 'Vegetables',       is_bestseller: false },
+  { name: 'Ridge Gourd',           unit: '500g',    mrp: 35,  sp: 28,  category: 'Vegetables',       is_bestseller: false },
+  { name: 'Bottle Gourd',          unit: '1 pc',    mrp: 30,  sp: 24,  category: 'Vegetables',       is_bestseller: false },
+  { name: 'Sweet Potato',          unit: '1 kg',    mrp: 55,  sp: 45,  category: 'Root Vegetables',  is_bestseller: false },
+  { name: 'Raw Banana',            unit: '1 kg',    mrp: 40,  sp: 32,  category: 'Fruits',            is_bestseller: false },
+  { name: 'Drumstick (Moringa)',   unit: '500g',    mrp: 40,  sp: 33,  category: 'Organic',           is_bestseller: false },
 ];
 
 const vendorIds = Object.values(insertedVendors.insertedIds);
@@ -183,6 +197,7 @@ const products = productList.map((p, i) => ({
   vendor_id: rand(vendorIds),
   vendor_shop_name: rand(shopNames),
   brand: rand(brandNames),
+  category: p.category,
   quantity: p.unit,
   mrp: p.mrp,
   selling_price: p.sp,
@@ -190,6 +205,7 @@ const products = productList.map((p, i) => ({
   stock_status: randInt(0, 200),
   product_image: productImageMap[p.name] || null,
   is_active: rand(['1', '1', '1', '0']),
+  is_bestseller: p.is_bestseller ? '1' : '0',
   description: `Fresh ${p.name} sourced directly from farms.`,
   created_at: daysAgo(randInt(1, 180)).toISOString(),
 }));
