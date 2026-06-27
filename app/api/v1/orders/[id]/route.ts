@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Order from '@/lib/models/Order';
+import OrderItem from '@/lib/models/OrderItem';
 import { authMiddleware } from '@/lib/auth';
 
 async function getOrderDetail(request: NextRequest, userId: string) {

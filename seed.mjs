@@ -3,6 +3,7 @@
 
 import mongoose from 'mongoose';
 import { readFileSync } from 'fs';
+import crypto from 'crypto';
 
 // Load .env.local manually
 const envContent = readFileSync('.env.local', 'utf8');
@@ -35,7 +36,7 @@ const daysAgo = (n) => new Date(today - n * 86400000);
 // ─────────────────────────────────────────────────────────────────────────────
 // DROP existing collections
 // ─────────────────────────────────────────────────────────────────────────────
-const colls = ['vendors','products','orders','deliveryboys','users','categories','brands','coupons','banners'];
+const colls = ['vendors','products','orders','deliveryboys','users','categories','brands','coupons','banners','addresses','orderitems'];
 for (const c of colls) {
   try { await db.collection(c).drop(); } catch {}
 }
@@ -198,17 +199,72 @@ console.log(`✅ ${products.length} Products inserted`);
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. USERS (15)
 // ─────────────────────────────────────────────────────────────────────────────
-const users = Array.from({ length: 15 }, (_, i) => ({
+const JWT_SECRET = 'vegimart-secure-secret-key-2026';
+const defaultHashedPassword = crypto.createHmac('sha256', JWT_SECRET).update('123456').digest('hex');
+
+const users = Array.from({ length: 14 }, (_, i) => ({
   name: indianNames[i],
-  mobile_number: `97${randInt(10000000, 99999999)}`,
+  mobile_no: `97${randInt(10000000, 99999999)}`,
+  mobile_number: `97${randInt(10000000, 99999999)}`, // seed both for compatibility
   email: `user${i + 1}@gmail.com`,
   city: rand(cities),
   wallet_balance: randFloat(0, 500),
+  password: defaultHashedPassword,
   is_active: '1',
   created_at: daysAgo(randInt(5, 200)).toISOString(),
 }));
+
+// Add a predictable test user Krishna Kumar for testing APIs
+users.push({
+  name: 'Krishna Kumar',
+  mobile_no: '9999999999',
+  mobile_number: '9999999999',
+  email: 'krishna@vegimart.com',
+  city: 'Mumbai',
+  wallet_balance: 1000,
+  password: defaultHashedPassword, // '123456'
+  is_active: '1',
+  created_at: new Date().toISOString(),
+});
 const insertedUsers = await db.collection('users').insertMany(users);
 console.log(`✅ ${users.length} Users inserted`);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5.5 ADDRESSES
+// ─────────────────────────────────────────────────────────────────────────────
+const userIds = Object.values(insertedUsers.insertedIds);
+const addresses = [];
+
+userIds.forEach(userId => {
+  addresses.push({
+    user_id: userId,
+    label: 'Home',
+    name: rand(indianNames),
+    mobile: `97${randInt(10000000, 99999999)}`,
+    address_line: `${randInt(1, 999)} MG Road`,
+    city: rand(cities),
+    state: 'Maharashtra',
+    pincode: `${randInt(400001, 400099)}`,
+    is_default: true,
+    created_at: daysAgo(randInt(10, 100)).toISOString(),
+  });
+  if (Math.random() > 0.5) {
+    addresses.push({
+      user_id: userId,
+      label: 'Work',
+      name: rand(indianNames),
+      mobile: `97${randInt(10000000, 99999999)}`,
+      address_line: `${randInt(1, 999)} IT Park`,
+      city: rand(cities),
+      state: 'Maharashtra',
+      pincode: `${randInt(400001, 400099)}`,
+      is_default: false,
+      created_at: daysAgo(randInt(10, 100)).toISOString(),
+    });
+  }
+});
+await db.collection('addresses').insertMany(addresses);
+console.log(`✅ ${addresses.length} Addresses inserted`);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. DELIVERY BOYS (10)
@@ -229,19 +285,51 @@ await db.collection('deliveryboys').insertMany(deliveryBoys);
 console.log(`✅ ${deliveryBoys.length} Delivery Boys inserted`);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. ORDERS (40)
+// 7. ORDERS & ORDERITEMS (40)
 // ─────────────────────────────────────────────────────────────────────────────
-const userIds = Object.values(insertedUsers.insertedIds);
 const productIds = Object.values(insertedProducts.insertedIds);
 const statusOptions = [0, 1, 2, 3, 4, 5];
 const paymentMethods = ['COD', 'ONLINE'];
 const paymentStatuses = ['pending', 'completed', 'failed'];
 
-const orders = Array.from({ length: 40 }, (_, i) => {
+const orders = [];
+const orderItems = [];
+
+for (let i = 0; i < 40; i++) {
+  const orderId = new mongoose.Types.ObjectId();
   const method = rand(paymentMethods);
   const total = randFloat(100, 2000);
   const orderDate = daysAgo(randInt(0, 90));
-  return {
+  const numItems = randInt(1, 4);
+  const itemIds = [];
+
+  for (let j = 0; j < numItems; j++) {
+    const orderItemId = new mongoose.Types.ObjectId();
+    const prodIndex = randInt(0, products.length - 1);
+    const prodId = insertedProducts.insertedIds[prodIndex];
+    const prodName = products[prodIndex].product_name;
+    const prodImg = products[prodIndex].product_image;
+
+    const qty = randInt(1, 3);
+    const price = randFloat(20, 300);
+
+    orderItems.push({
+      _id: orderItemId,
+      order_id: orderId,
+      product_id: prodId,
+      product_name: prodName,
+      qty: qty,
+      price: price,
+      image: prodImg || '',
+      created_at: orderDate.toISOString(),
+      updated_at: orderDate.toISOString()
+    });
+
+    itemIds.push(orderItemId);
+  }
+
+  orders.push({
+    _id: orderId,
     order_number: `ORD-${orderDate.getFullYear()}-${String(i + 1).padStart(4, '0')}`,
     user_id: rand(userIds),
     customer_mobile: `97${randInt(10000000, 99999999)}`,
@@ -251,15 +339,15 @@ const orders = Array.from({ length: 40 }, (_, i) => {
     status: rand(statusOptions),
     city: rand(cities),
     delivery_address: `${randInt(1, 999)} ${rand(['MG Road', 'Ring Road', 'Civil Lines', 'New Market'])}, ${rand(cities)}`,
-    items: Array.from({ length: randInt(1, 4) }, () => ({
-      product_id: rand(productIds),
-      product_name: rand(productList).name,
-      quantity: randInt(1, 3),
-      price: randFloat(20, 300),
-    })),
+    items: itemIds,
     created_at: orderDate.toISOString(),
-  };
-});
+    updated_at: orderDate.toISOString()
+  });
+}
+
+await db.collection('orderitems').insertMany(orderItems);
+console.log(`✅ ${orderItems.length} Order Items inserted`);
+
 await db.collection('orders').insertMany(orders);
 console.log(`✅ ${orders.length} Orders inserted`);
 
@@ -296,10 +384,12 @@ console.log('🎉 Seed complete! MongoDB Atlas में data import हो ग�
 console.log('   • 20 Vendors');
 console.log('   • 30 Products');
 console.log('   • 40 Orders');
+console.log(`   • ${orderItems.length} Order Items`);
 console.log('   • 15 Users');
+console.log(`   • ${addresses.length} Addresses`);
 console.log('   • 10 Delivery Boys');
 console.log('   • 8 Categories');
-console.log('   • 6 Brands');
+`   • 6 Brands`;
 console.log('   • 5 Coupons');
 console.log('   • 4 Banners');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
