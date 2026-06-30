@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary with secure environment variables
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 export async function POST(request: NextRequest) {
   try {
+    // Configure Cloudinary inside the handler to ensure env vars are loaded
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
     const formData = await request.formData();
     const files = formData.getAll('file') as File[];
     
@@ -17,11 +17,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No files uploaded' }, { status: 400 });
     }
 
-    // Check if Cloudinary is configured
-    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+    // Explicit check for all required keys
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
       return NextResponse.json({
         success: false,
-        error: 'Cloudinary is not configured. Please add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your .env file.'
+        error: 'Cloudinary configuration is incomplete. Check your Environment Variables in Vercel.'
       }, { status: 500 });
     }
 
