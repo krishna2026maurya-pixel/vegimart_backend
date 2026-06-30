@@ -102,14 +102,13 @@ async function getDashboard(request: NextRequest, userId: string) {
       wishlistItems.map((w: any) => w.product_id.toString())
     );
 
-    // ─── Build cart map for O(1) lookup ────────────────────────────────────
+    // ─── Build cart qty map for O(1) lookup: productId → qty ──────────────
     const cartItems: any[] = (cart as any)?.items || [];
-    const cartProductIds = new Set(
-      cartItems.map((item: any) => {
-        const pid = item.product_id?._id || item.product_id;
-        return pid?.toString();
-      })
-    );
+    const cartQtyMap = new Map<string, number>();
+    cartItems.forEach((item: any) => {
+      const pid = (item.product_id?._id || item.product_id)?.toString();
+      if (pid) cartQtyMap.set(pid, item.qty || 1);
+    });
 
     // ─── Cart summary ───────────────────────────────────────────────────────
     let cartTotalAmount = 0;
@@ -141,26 +140,31 @@ async function getDashboard(request: NextRequest, userId: string) {
     const totalSavingAmount = parseFloat((cartTotalMrp - cartTotalAmount).toFixed(2));
 
     // ─── Enrich products with wishlist + cart info ─────────────────────────
-    const enrichProduct = (p: any) => ({
-      _id: p._id,
-      product_name: p.product_name,
-      product_image: p.product_image || null,
-      selling_price: p.selling_price,
-      mrp: p.mrp,
-      gst: p.gst || 0,
-      quantity: p.quantity,
-      brand: p.brand || null,
-      category: p.category || null,
-      stock_status: p.stock_status,
-      description: p.description || p.product_description || null,
-      is_active: p.is_active,
-      is_bestseller: (p as any).is_bestseller === '1',
-      is_wishlist: wishlistProductIds.has(p._id.toString()),
-      is_in_cart: cartProductIds.has(p._id.toString()),
-      discount_percent: p.mrp && p.selling_price && p.mrp > p.selling_price
-        ? parseFloat((((p.mrp - p.selling_price) / p.mrp) * 100).toFixed(1))
-        : 0,
-    });
+    const enrichProduct = (p: any) => {
+      const pid = p._id.toString();
+      const cartCount = cartQtyMap.get(pid) || 0;
+      return {
+        _id: p._id,
+        product_name: p.product_name,
+        product_image: p.product_image || null,
+        selling_price: p.selling_price,
+        mrp: p.mrp,
+        gst: p.gst || 0,
+        quantity: p.quantity,
+        brand: p.brand || null,
+        category: p.category || null,
+        stock_status: p.stock_status,
+        description: p.description || p.product_description || null,
+        is_active: p.is_active,
+        is_bestseller: p.is_bestseller === '1',
+        is_wishlist: wishlistProductIds.has(pid),
+        is_in_cart: cartCount > 0,
+        cart_count: cartCount,          // ← qty in user's cart (0 if not added)
+        discount_percent: p.mrp && p.selling_price && p.mrp > p.selling_price
+          ? parseFloat((((p.mrp - p.selling_price) / p.mrp) * 100).toFixed(1))
+          : 0,
+      };
+    };
 
     // ─── Bestsellers: products flagged as bestseller OR highest discount ────
     const bestsellers = [...allProducts]

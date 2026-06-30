@@ -1,43 +1,151 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Product from '@/lib/models/Product';
+import Cart from '@/lib/models/Cart';
+import Wishlist from '@/lib/models/Wishlist';
+import { getUserIdFromRequest } from '@/lib/auth';
 
+/**
+ * GET /api/v1/products          → product list (with optional filters)
+ * POST /api/v1/products         → product detail  { id: "..." }
+ *
+ * POST body: { id: "PRODUCT_ID" }
+ * Auth: optional — if token sent, is_wishlist & cart_count are per-user
+ */
+
+// ─── LIST ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search') || '';
-    const categoryId = searchParams.get('category_id');
-    const subcategoryId = searchParams.get('subcategory_id');
-    
-    const query: any = {};
-    if (search) {
-      query.product_name = { $regex: search, $options: 'i' };
-    }
-    if (categoryId) {
-      query.category = categoryId;
-    }
-    if (subcategoryId) {
-      query.subcategory = subcategoryId;
-    }
-    
+    const page     = parseInt(searchParams.get('page')  || '1');
+    const limit    = parseInt(searchParams.get('limit') || '10');
+    const search   = searchParams.get('search')      || '';
+    const category = searchParams.get('category')    || '';
+    const brand    = searchParams.get('brand')       || '';
+
+    const query: any = { is_active: '1' };
+    if (search)   query.product_name = { $regex: search, $options: 'i' };
+    if (category) query.category     = { $regex: category, $options: 'i' };
+    if (brand)    query.brand        = { $regex: brand, $options: 'i' };
+
     const [data, total] = await Promise.all([
       Product.find(query).skip((page - 1) * limit).limit(limit).lean(),
       Product.countDocuments(query),
     ]);
-    
+
     return NextResponse.json({
+      success: true,
       data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-      }
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: e.message }, { status: 500 });
+  }
+}
+
+// ─── DETAIL ────────────────────────────────────────────────────────────────────
+export async function POST(request: NextRequest) {
+  try {
+    await connectDB();
+
+    // Support JSON body, form-data, AND URL query param
+    let productId: string | null = null;
+
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const body = await request.json().catch(() => ({}));
+      productId = body.id || body.product_id;
+    } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+      const form = await request.formData().catch(() => null);
+      if (form) productId = (form.get('id') || form.get('product_id')) as string | null;
+    }
+
+    // Fallback: URL query param  ?id=xxx  or  ?product_id=xxx
+    if (!productId) {
+      const { searchParams } = new URL(request.url);
+      productId = searchParams.get('id') || searchParams.get('product_id');
+    }
+
+    if (!productId) {
+      return NextResponse.json(
+        { success: false, error: 'id is required in body. Send { "id": "PRODUCT_ID" }' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch product
+    const product: any = await Product.findById(productId).lean();
+    if (!product) {
+      return NextResponse.json({ success: false, error: 'Product not found.' }, { status: 404 });
+    }
+    if (product.is_active === '0') {
+      return NextResponse.json({ success: false, error: 'Product is not available.' }, { status: 404 });
+    }
+
+    // Optional auth — enrich with per-user cart & wishlist if token present
+    let is_wishlist  = false;
+    let cart_count   = 0;
+    let is_in_cart   = false;
+
+    const userId = getUserIdFromRequest(request);
+    if (userId) {
+      const [wishlistDoc, cartDoc] = await Promise.all([
+        Wishlist.findOne({ user_id: userId, product_id: productId }).lean(),
+        Cart.findOne({ user_id: userId }).lean() as any,
+      ]);
+
+      is_wishlist = !!wishlistDoc;
+
+      if (cartDoc) {
+        const cartItem = (cartDoc.items || []).find(
+          (i: any) => i.product_id?.toString() === productId
+        );
+        cart_count = cartItem?.qty || 0;
+        is_in_cart = cart_count > 0;
+      }
+    }
+
+    // Compute discount
+    const discount_percent =
+      product.mrp && product.selling_price && product.mrp > product.selling_price
+        ? parseFloat((((product.mrp - product.selling_price) / product.mrp) * 100).toFixed(1))
+        : 0;
+
+    const saving_amount =
+      product.mrp && product.selling_price
+        ? parseFloat((product.mrp - product.selling_price).toFixed(2))
+        : 0;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        _id:              product._id,
+        product_name:     product.product_name,
+        product_image:    product.product_image  || null,
+        images:           product.images         || [],
+        selling_price:    product.selling_price,
+        mrp:              product.mrp,
+        discount_percent,
+        saving_amount,
+        gst:              product.gst            || 0,
+        quantity:         product.quantity        || '',
+        brand:            product.brand           || null,
+        category:         product.category        || null,
+        stock_status:     product.stock_status,
+        in_stock:         (product.stock_status || 0) > 0,
+        description:      product.description    || product.product_description || null,
+        is_active:        product.is_active,
+        is_bestseller:    product.is_bestseller === '1',
+
+        // Per-user fields (null if no token sent)
+        is_wishlist,
+        is_in_cart,
+        cart_count,       // 0 if not in cart
+      },
+    });
+  } catch (e: any) {
+    return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
 }
