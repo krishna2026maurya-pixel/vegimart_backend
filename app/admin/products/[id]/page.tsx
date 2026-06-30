@@ -18,12 +18,14 @@ export default function EditProductPage() {
   const [error, setError] = useState('');
   const [categoryTypes, setCategoryTypes] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [subcategories, setSubcategories] = useState<any[]>([])
+  const [subcategories, setSubcategories] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/api/category-types?limit=100').then(r => r.json()).then(j => setCategoryTypes(j.data || []));
     fetch('/api/categories?limit=200').then(r => r.json()).then(j => setCategories(j.data || []));
     fetch('/api/subcategories?limit=200').then(r => r.json()).then(j => setSubcategories(j.data || []));
+    fetch('/api/vendors?limit=100').then(r => r.json()).then(j => setVendors(j.data || []));
   }, []);
 
   const [form, setForm] = useState({
@@ -173,6 +175,13 @@ export default function EditProductPage() {
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Basic Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelCls}>Product Name *</label><input name="product_name" value={form.product_name} onChange={handleChange} required className={inputCls} /></div>
+            <div>
+              <label className={labelCls}>Vendor *</label>
+              <select name="vendor_id" value={form.vendor_id} onChange={handleChange} required className={inputCls}>
+                <option value="">Select Vendor...</option>
+                {vendors.map(v => <option key={v._id} value={v._id}>{v.shop_name}</option>)}
+              </select>
+            </div>
             <div><label className={labelCls}>Brand</label><input name="brand" value={form.brand} onChange={handleChange} className={inputCls} /></div>
             <div><label className={labelCls}>Product Label</label><input name="product_label" value={form.product_label} onChange={handleChange} placeholder="e.g. Inclusive of all taxes" className={inputCls} /></div>
           </div>
