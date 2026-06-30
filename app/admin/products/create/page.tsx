@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Upload, X, ArrowLeft, Save } from 'lucide-react';
