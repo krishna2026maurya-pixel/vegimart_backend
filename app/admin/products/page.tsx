@@ -122,7 +122,7 @@ export default function ProductsPage() {
       icon: <Trash2 size={15} />,
       color: 'danger',
       onClick: async (row) => {
-        if (!confirm(`"${row.product_name}" delete करें?`)) return;
+        if (!confirm(`Delete "${row.product_name}"?`)) return;
         await fetch(`/api/products/${row._id}`, { method: 'DELETE' });
         fetchData();
       }
@@ -135,7 +135,7 @@ export default function ProductsPage() {
       icon: <Trash2 size={14} />,
       color: 'danger',
       onClick: async (ids) => {
-        if (!confirm(`${ids.length} products delete करें?`)) return;
+        if (!confirm(`Delete ${ids.length} selected products?`)) return;
         await Promise.all(ids.map(id => fetch(`/api/products/${id}`, { method: 'DELETE' })));
         fetchData();
       }

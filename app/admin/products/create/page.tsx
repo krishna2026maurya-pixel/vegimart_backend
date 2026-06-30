@@ -151,7 +151,10 @@ function CreateProductForm() {
         <Link href="/admin/products">
           <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" /></button>
         </Link>
-        <div><h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Product</h1><p className="text-sm text-gray-500">नया product जोड़ें</p></div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Product</h1>
+          <p className="text-sm text-gray-500">Add a new product to the catalog</p>
+        </div>
       </div>
 
       {error && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">⚠️ {error}</div>}
