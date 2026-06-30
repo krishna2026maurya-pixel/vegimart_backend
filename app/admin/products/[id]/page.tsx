@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Upload, X, ArrowLeft, Save } from 'lucide-react';
+import { Upload, X, ArrowLeft, Save, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function EditProductPage() {
@@ -10,10 +10,14 @@ export default function EditProductPage() {
   const params = useParams();
   const id = params?.id as string;
   const fileRef = useRef<HTMLInputElement>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Multiple images state
+  const [images, setImages] = useState<string[]>([]);
+  const [mainImage, setMainImage] = useState<string | null>(null);
+
   const [uploadingImg, setUploadingImg] = useState(false);
   const [error, setError] = useState('');
   const [categoryTypes, setCategoryTypes] = useState<any[]>([]);
@@ -80,10 +84,22 @@ export default function EditProductPage() {
             stock_status: d.stock_status || '',
             description: d.description || '',
           });
-          if (d.product_images) {
-            setImageUrl(d.product_images);
-            setImagePreview(d.product_images.startsWith('/') || d.product_images.startsWith('http') ? d.product_images : `/uploads/${d.product_images}`);
+
+          // Parse multiple images
+          let loadedImages: string[] = [];
+          if (Array.isArray(d.images)) {
+            loadedImages = d.images;
+          } else if (d.product_images) {
+            try {
+              loadedImages = JSON.parse(d.product_images);
+              if (!Array.isArray(loadedImages)) loadedImages = [d.product_images];
+            } catch {
+              loadedImages = [d.product_images];
+            }
           }
+
+          setImages(loadedImages);
+          setMainImage(d.product_image || (loadedImages.length > 0 ? loadedImages[0] : null));
         }
       } catch (e: any) { setError(e.message); } finally { setLoading(false); }
     };
@@ -95,19 +111,41 @@ export default function EditProductPage() {
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImagePreview(URL.createObjectURL(file));
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
     setUploadingImg(true);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      for (let i = 0; i < files.length; i++) {
+        fd.append('file', files[i]);
+      }
+
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      setImageUrl(json.url);
+
+      const newUrls = Array.isArray(json.data) ? json.data.map((item: any) => item.url) : [json.url];
+
+      setImages(prev => {
+        const updated = [...prev, ...newUrls];
+        if (!mainImage && updated.length > 0) setMainImage(updated[0]);
+        return updated;
+      });
     } catch (e: any) { setError('Image upload failed: ' + e.message); }
-    finally { setUploadingImg(false); }
+    finally {
+      setUploadingImg(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    const removedUrl = images[index];
+    const newImages = images.filter((_, i) => i !== index);
+    setImages(newImages);
+    if (mainImage === removedUrl) {
+      setMainImage(newImages.length > 0 ? newImages[0] : null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,7 +158,9 @@ export default function EditProductPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          product_images: imageUrl,
+          images: images,
+          product_image: mainImage || (images.length > 0 ? images[0] : null),
+          product_images: JSON.stringify(images),
           mrp: Number(form.mrp),
           selling_price: Number(form.selling_price),
           gst: Number(form.gst),
@@ -155,19 +195,42 @@ export default function EditProductPage() {
         
         {/* Product Image Section */}
         <div className={sectionCls}>
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Product Image</h2>
-          <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors">
-            {imagePreview ? (
-              <div className="relative inline-block">
-                <img src={imagePreview} alt="Preview" className="h-40 w-40 object-cover rounded-lg mx-auto" />
-                {uploadingImg && <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center"><div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>}
-                <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setImageUrl(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><X size={12} /></button>
-              </div>
-            ) : (
-              <div className="space-y-2"><Upload size={32} className="mx-auto text-gray-400" /><p className="text-sm text-gray-500">Click to upload image</p></div>
-            )}
+          <div className="flex justify-between items-center">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Product Images</h2>
+            <span className="text-xs text-gray-500">Click on an image to set it as front.</span>
           </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {images.map((url, idx) => (
+              <div key={idx} className={`relative group border-2 rounded-xl overflow-hidden aspect-square ${mainImage === url ? 'border-green-500 shadow-md' : 'border-gray-200 dark:border-gray-700'}`}>
+                <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover cursor-pointer" onClick={() => setMainImage(url)} />
+
+                <button type="button" onClick={() => removeImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+
+                {mainImage === url && (
+                  <div className="absolute top-1 left-1 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Front
+                  </div>
+                )}
+
+                {mainImage !== url && (
+                  <button type="button" onClick={() => setMainImage(url)} className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-gray-800/90 text-[10px] px-2 py-0.5 rounded-full border opacity-0 group-hover:opacity-100 transition-opacity">Set Front</button>
+                )}
+              </div>
+            ))}
+
+            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl flex flex-col items-center justify-center aspect-square cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors">
+              {uploadingImg ? (
+                <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Upload size={24} className="text-gray-400" />
+                  <p className="text-[10px] text-gray-500 mt-1 text-center px-2">Click to add images</p>
+                </>
+              )}
+            </div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
         </div>
 
         {/* Basic Info Section */}
