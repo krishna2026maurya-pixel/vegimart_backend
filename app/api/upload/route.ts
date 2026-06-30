@@ -3,30 +3,30 @@ import { v2 as cloudinary } from 'cloudinary';
 
 export async function POST(request: NextRequest) {
   try {
-    // Try to get keys from all possible variants (sometimes Vercel prefixes them)
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY || process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET || process.env.NEXT_PUBLIC_CLOUDINARY_API_SECRET;
+    // Priority 1: Use the single CLOUDINARY_URL if available
+    const cloudinaryUrl = process.env.CLOUDINARY_URL;
 
-    // Detailed debug check
-    const missing = [];
-    if (!cloudName) missing.push('CLOUD_NAME');
-    if (!apiKey) missing.push('API_KEY');
-    if (!apiSecret) missing.push('API_SECRET');
+    // Priority 2: Use individual keys
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
-    if (missing.length > 0) {
+    if (!cloudinaryUrl && (!cloudName || !apiKey || !apiSecret)) {
       return NextResponse.json({
         success: false,
-        error: `Cloudinary config incomplete. Missing: ${missing.join(', ')}. Please check Vercel Dashboard for typos or spaces in Key names.`
+        error: `Cloudinary configuration missing. Please add CLOUDINARY_URL to Vercel Environment Variables.`
       }, { status: 500 });
     }
 
-    // Configure Cloudinary
-    cloudinary.config({
-      cloud_name: cloudName.trim(),
-      api_key: apiKey.trim(),
-      api_secret: apiSecret.trim(),
-    });
+    // Config will automatically use CLOUDINARY_URL if present in process.env
+    // Otherwise we set it manually
+    if (!cloudinaryUrl) {
+      cloudinary.config({
+        cloud_name: cloudName?.trim(),
+        api_key: apiKey?.trim(),
+        api_secret: apiSecret?.trim(),
+      });
+    }
 
     const formData = await request.formData();
     const files = formData.getAll('file') as File[];
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       urls: uploadedFiles.map(f => f.url)
     });
   } catch (error: any) {
+    console.error('Upload Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
