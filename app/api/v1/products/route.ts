@@ -4,12 +4,15 @@ import Product from '@/lib/models/Product';
 import Cart from '@/lib/models/Cart';
 import Wishlist from '@/lib/models/Wishlist';
 import { getUserIdFromRequest } from '@/lib/auth';
+import mongoose from 'mongoose';
 
 /**
  * GET /api/v1/products          → product list (with optional filters)
- * POST /api/v1/products         → product detail  { id: "..." }
+ * POST /api/v1/products         → product detail
  *
- * POST body: { id: "PRODUCT_ID" }
+ * POST supports:
+ * - JSON: { "id": "..." } or { "product_id": "..." }
+ * - FormData: id="..." or product_id="..."
  * Auth: optional — if token sent, is_wishlist & cart_count are per-user
  */
 
@@ -49,20 +52,23 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
-    // Support JSON body, form-data, AND URL query param
     let productId: string | null = null;
-
     const contentType = request.headers.get('content-type') || '';
 
     if (contentType.includes('application/json')) {
       const body = await request.json().catch(() => ({}));
       productId = body.id || body.product_id;
-    } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
-      const form = await request.formData().catch(() => null);
-      if (form) productId = (form.get('id') || form.get('product_id')) as string | null;
+    } else if (
+      contentType.includes('multipart/form-data') ||
+      contentType.includes('application/x-www-form-urlencoded')
+    ) {
+      const formData = await request.formData().catch(() => null);
+      if (formData) {
+        productId = (formData.get('id') || formData.get('product_id')) as string | null;
+      }
     }
 
-    // Fallback: URL query param  ?id=xxx  or  ?product_id=xxx
+    // Fallback: URL query param ?id=xxx
     if (!productId) {
       const { searchParams } = new URL(request.url);
       productId = searchParams.get('id') || searchParams.get('product_id');
@@ -70,7 +76,14 @@ export async function POST(request: NextRequest) {
 
     if (!productId) {
       return NextResponse.json(
-        { success: false, error: 'id is required in body. Send { "id": "PRODUCT_ID" }' },
+        { success: false, error: 'Product ID is required (pass "id" or "product_id" in formData or JSON).' },
+        { status: 400 }
+      );
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid Product ID format.' },
         { status: 400 }
       );
     }

@@ -61,6 +61,8 @@ export function authMiddleware(handler: (req: NextRequest, userId: string, param
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized. Please login again.' }, { status: 401 });
     }
-    return handler(request, userId, context?.params);
+    // Next.js 15: params is now a Promise
+    const params = context?.params ? await context.params : {};
+    return handler(request, userId, params);
   };
 }
