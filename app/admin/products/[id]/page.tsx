@@ -173,7 +173,6 @@ export default function EditProductPage() {
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Basic Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelCls}>Product Name *</label><input name="product_name" value={form.product_name} onChange={handleChange} required className={inputCls} /></div>
-            <div><label className={labelCls}>Vendor ID</label><input name="vendor_id" value={form.vendor_id} onChange={handleChange} placeholder="Optional" className={inputCls} /></div>
             <div><label className={labelCls}>Brand</label><input name="brand" value={form.brand} onChange={handleChange} className={inputCls} /></div>
             <div><label className={labelCls}>Product Label</label><input name="product_label" value={form.product_label} onChange={handleChange} placeholder="e.g. Inclusive of all taxes" className={inputCls} /></div>
           </div>

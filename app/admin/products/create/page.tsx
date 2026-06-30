@@ -1,12 +1,13 @@
-"use client";
-
-import React, { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Upload, X, ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 
-export default function CreateProductPage() {
+function CreateProductForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryVendorId = searchParams.get('vendor_id') || '';
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export default function CreateProductPage() {
   }, []);
 
   const [form, setForm] = useState({
-    vendor_id: '',
+    vendor_id: queryVendorId,
     product_name: '',
     cat_type_id: '',
     category: '',
@@ -44,6 +45,13 @@ export default function CreateProductPage() {
     stock_status: '',
     description: '',
   });
+
+  // Sync vendor_id if query param changes
+  useEffect(() => {
+    if (queryVendorId) {
+      setForm(prev => ({ ...prev, vendor_id: queryVendorId }));
+    }
+  }, [queryVendorId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -128,7 +136,9 @@ export default function CreateProductPage() {
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Basic Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelCls}>Product Name *</label><input name="product_name" value={form.product_name} onChange={handleChange} required className={inputCls} /></div>
-            <div><label className={labelCls}>Vendor ID</label><input name="vendor_id" value={form.vendor_id} onChange={handleChange} placeholder="Optional" className={inputCls} /></div>
+            {!queryVendorId && (
+              <div><label className={labelCls}>Vendor ID</label><input name="vendor_id" value={form.vendor_id} onChange={handleChange} placeholder="Optional" className={inputCls} /></div>
+            )}
             <div><label className={labelCls}>Brand</label><input name="brand" value={form.brand} onChange={handleChange} className={inputCls} /></div>
             <div><label className={labelCls}>Product Label</label><input name="product_label" value={form.product_label} onChange={handleChange} placeholder="e.g. Inclusive of all taxes" className={inputCls} /></div>
           </div>
@@ -202,5 +212,13 @@ export default function CreateProductPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function CreateProductPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" /></div>}>
+      <CreateProductForm />
+    </Suspense>
   );
 }
