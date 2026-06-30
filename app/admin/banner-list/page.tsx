@@ -39,7 +39,7 @@ export default function BannerListPage() {
   ];
 
   const actions: Action<Banner>[] = [
-    { label: 'Delete', icon: <Trash2 size={16} />, onClick: (row) => deleteBanner(row._id), variant: 'danger' },
+    { label: 'Delete', icon: <Trash2 size={16} />, onClick: (row) => deleteBanner(row._id), color: 'danger' },
   ];
 
   return (
