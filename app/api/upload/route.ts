@@ -3,11 +3,29 @@ import { v2 as cloudinary } from 'cloudinary';
 
 export async function POST(request: NextRequest) {
   try {
-    // Configure Cloudinary inside the handler to ensure env vars are loaded
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    // Detailed debug check (safe for production)
+    const missing = [];
+    if (!cloudName) missing.push('CLOUD_NAME');
+    if (!apiKey) missing.push('API_KEY');
+    if (!apiSecret) missing.push('API_SECRET');
+
+    if (missing.length > 0) {
+      console.error('Cloudinary Env Missing:', missing.join(', '));
+      return NextResponse.json({
+        success: false,
+        error: `Cloudinary config incomplete. Missing: ${missing.join(', ')}. Please check Vercel Env Variables.`
+      }, { status: 500 });
+    }
+
+    // Configure Cloudinary
     cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
     });
 
     const formData = await request.formData();
@@ -15,14 +33,6 @@ export async function POST(request: NextRequest) {
     
     if (!files || files.length === 0) {
       return NextResponse.json({ success: false, error: 'No files uploaded' }, { status: 400 });
-    }
-
-    // Explicit check for all required keys
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cloudinary configuration is incomplete. Check your Environment Variables in Vercel.'
-      }, { status: 500 });
     }
 
     const uploadedFiles = [];
@@ -36,7 +46,6 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Upload to Cloudinary using a promise
       const uploadResult = await new Promise((resolve, reject) => {
         cloudinary.uploader.upload_stream(
           { folder: 'vegimart_products' },
@@ -52,10 +61,6 @@ export async function POST(request: NextRequest) {
         filename: uploadResult.public_id,
         originalName: file.name
       });
-    }
-
-    if (uploadedFiles.length === 0) {
-      return NextResponse.json({ success: false, error: 'No valid images were uploaded' }, { status: 400 });
     }
 
     return NextResponse.json({
