@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import DataTable, { Column, Action, BulkAction } from '../components/DataTable';
 import { Trash2, Plus } from 'lucide-react';
 import Link from 'next/link';
-interface Banner { _id: string; title: string; subtitle?: string; image?: string; link?: string; is_active: string; sort_order: number; }
+interface Banner { _id: string; title: string; subtitle?: string; image?: string; link?: string; category_id?: string; is_active: string; sort_order: number; }
 export default function BannerListPage() {
   const [data, setData] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +33,7 @@ export default function BannerListPage() {
   const columns: Column<Banner>[] = [
     { key: 'image', label: 'Image', render: (row) => row.image ? <img src={row.image} alt={row.title} className="h-12 w-24 object-cover rounded" /> : <div className="h-12 w-24 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No Image</div> },
     { key: 'title', label: 'Title', render: (row) => <span className="font-semibold">{row.title || 'No Title'}</span> },
+    { key: 'category_id', label: 'Linked Category', render: (row) => row.category_id ? <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100">{row.category_id}</span> : <span className="text-gray-400">None</span> },
     { key: 'link', label: 'Link' },
     { key: 'sort_order', label: 'Order' },
     { key: 'is_active', label: 'Status', render: (row) => <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${row.is_active === '1' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{row.is_active === '1' ? 'Active' : 'Inactive'}</span> },

@@ -16,10 +16,20 @@ export default function CreateBannerPage() {
   const [form, setForm] = useState({
     title: '',
     link: '',
+    category_id: '',
     sort_order: 0,
     is_active: '1',
     image: '',
   });
+
+  const [categories, setCategories] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/categories?limit=100')
+      .then(res => res.json())
+      .then(json => setCategories(json.data || []))
+      .catch(err => console.error('Error fetching categories:', err));
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -143,9 +153,22 @@ export default function CreateBannerPage() {
             <input name="title" value={form.title} onChange={handleChange} placeholder="e.g. Summer Sale 2026" className={inputCls} />
           </div>
 
-          <div>
-            <label className={labelCls}>Target Link (URL)</label>
-            <input name="link" value={form.link} onChange={handleChange} placeholder="e.g. /category/grocery" className={inputCls} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Connect to Category (Click Action)</label>
+              <select name="category_id" value={form.category_id} onChange={handleChange} className={inputCls}>
+                <option value="">No Category Link</option>
+                {categories.map(cat => (
+                  <option key={cat._id} value={cat._id}>{cat.name}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-gray-500 mt-1">If selected, clicking the banner will open this category.</p>
+            </div>
+
+            <div>
+              <label className={labelCls}>Custom Link (Alternative)</label>
+              <input name="link" value={form.link} onChange={handleChange} placeholder="e.g. /offers" className={inputCls} />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
