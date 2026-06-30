@@ -82,15 +82,16 @@ function CreateProductForm() {
 
       if (!res.ok) throw new Error(json.error);
 
-      // The API returns an array or single object based on count
-      const newUrls = Array.isArray(json.data) ? json.data.map((item: any) => item.url) : [json.url];
+      // The API always returns a 'urls' array which is the most reliable
+      const newUrls = json.urls || (Array.isArray(json.data) ? json.data.map((item: any) => item.url) : [json.data?.url]);
 
-      setImages(prev => {
-        const updated = [...prev, ...newUrls];
-        // If no main image yet, set first one as main
-        if (!mainImage && updated.length > 0) setMainImage(updated[0]);
-        return updated;
-      });
+      if (newUrls && newUrls.length > 0) {
+        setImages(prev => {
+          const updated = [...prev, ...newUrls.filter((u: any) => u)];
+          if (!mainImage && updated.length > 0) setMainImage(updated[0]);
+          return updated;
+        });
+      }
     } catch (e: any) {
       setError('Image upload failed: ' + e.message);
     } finally {

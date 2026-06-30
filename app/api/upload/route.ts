@@ -12,9 +12,14 @@ export async function POST(request: NextRequest) {
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
     if (!cloudinaryUrl && (!cloudName || !apiKey || !apiSecret)) {
+      const missing = [];
+      if (!cloudinaryUrl && !cloudName) missing.push('CLOUDINARY_CLOUD_NAME');
+      if (!cloudinaryUrl && !apiKey) missing.push('CLOUDINARY_API_KEY');
+      if (!cloudinaryUrl && !apiSecret) missing.push('CLOUDINARY_API_SECRET');
+
       return NextResponse.json({
         success: false,
-        error: `Cloudinary configuration missing. Please add CLOUDINARY_URL to Vercel Environment Variables.`
+        error: `Cloudinary configuration missing. Missing: ${missing.join(', ')}. Please add CLOUDINARY_URL or all individual keys to Vercel Environment Variables and REDEPLOY.`
       }, { status: 500 });
     }
 

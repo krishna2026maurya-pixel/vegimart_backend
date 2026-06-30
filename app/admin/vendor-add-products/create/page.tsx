@@ -71,7 +71,10 @@ export default function CreateVendorProductPage() {
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      setImageUrl(json.url);
+
+      // Fix: Access url from the data object or urls array
+      const uploadedUrl = json.data?.url || (json.urls && json.urls[0]);
+      setImageUrl(uploadedUrl);
     } catch (e: any) {
       setError('Image upload failed: ' + e.message);
     } finally {
