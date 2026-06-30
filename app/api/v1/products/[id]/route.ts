@@ -59,6 +59,13 @@ export async function GET(
         ? parseFloat((product.mrp - product.selling_price).toFixed(2))
         : 0;
 
+    // Fetch Similar Products
+    const similarProducts = await Product.find({
+      _id: { $ne: id },
+      category: product.category,
+      is_active: '1'
+    }).limit(10).lean();
+
     return NextResponse.json({
       success: true,
       data: {
@@ -69,6 +76,7 @@ export async function GET(
         is_in_cart,
         cart_count,
         in_stock: (product.stock_status || 0) > 0,
+        similar_products: similarProducts
       }
     });
   } catch (e: any) {
