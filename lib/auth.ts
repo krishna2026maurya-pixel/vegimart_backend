@@ -55,12 +55,12 @@ export function getUserIdFromRequest(request: NextRequest): string | null {
   return payload ? payload.id : null;
 }
 
-export function authMiddleware(handler: (req: NextRequest, userId: string) => Promise<NextResponse>) {
-  return async (request: NextRequest) => {
+export function authMiddleware(handler: (req: NextRequest, userId: string, params?: any) => Promise<NextResponse>) {
+  return async (request: NextRequest, context: any) => {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized. Please login again.' }, { status: 401 });
     }
-    return handler(request, userId);
+    return handler(request, userId, context?.params);
   };
 }

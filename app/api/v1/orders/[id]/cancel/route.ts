@@ -2,29 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Order from '@/lib/models/Order';
 import { authMiddleware } from '@/lib/auth';
+import mongoose from 'mongoose';
 
-async function cancelOrder(request: NextRequest, userId: string) {
+async function cancelOrder(request: NextRequest, userId: string, params: any) {
   try {
     await connectDB();
-    const url = new URL(request.url);
-    const paths = url.pathname.split('/');
-    const id = paths[paths.length - 2]; // e.g. /api/v1/orders/[id]/cancel -> id is second to last
+    const { id } = params;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, error: 'Invalid order ID format.' }, { status: 400 });
+    }
     
     const order = await Order.findOne({ _id: id, user_id: userId });
     if (!order) {
-      return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Order not found.' }, { status: 404 });
     }
     
     if (order.status > 1) {
-      return NextResponse.json({ error: 'Order cannot be cancelled as it is already dispatched or delivered.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Order cannot be cancelled as it is already dispatched or delivered.' }, { status: 400 });
     }
     
     order.status = 4; // Cancelled
     await order.save();
     
-    return NextResponse.json({ message: 'Order cancelled successfully.', data: order });
+    return NextResponse.json({ success: true, message: 'Order cancelled successfully.', data: order });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
 }
 
