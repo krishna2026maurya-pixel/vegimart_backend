@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Cart from '@/lib/models/Cart';
 import User from '@/lib/models/User';
+import Product from '@/lib/models/Product';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
+
+    // Explicitly reference models to ensure they are registered in Mongoose
+    const _UserModel = User;
+    const _ProductModel = Product;
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
